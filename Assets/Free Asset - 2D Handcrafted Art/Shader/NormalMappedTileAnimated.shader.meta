@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: eeca7422f398ad64c81cc2af3eedaeb2
+timeCreated: 1523611046
+licenseType: Store
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 117049
+  packageName: Free Asset - 2D Handcrafted Art
+  packageVersion: 1.0
+  assetPath: Assets/Free Asset - 2D Handcrafted Art/Shader/NormalMappedTileAnimated.shader
+  uploadId: 244939
