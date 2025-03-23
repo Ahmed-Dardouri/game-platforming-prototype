@@ -11,13 +11,13 @@ TagManager:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - walls
+  - 
   - Water
   - UI
   - 
   - 
-  - 
-  - 
+  - ground
+  - walls
   - 
   - 
   - 

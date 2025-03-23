@@ -17,7 +17,7 @@ MonoBehaviour:
     m_Bits: 1
   wallLayer:
     serializedVersion: 2
-    m_Bits: 8
+    m_Bits: 0
   SnapInput: 1
   VerticalDeadZoneThreshold: 0.183
   HorizontalDeadZoneThreshold: 0.101
