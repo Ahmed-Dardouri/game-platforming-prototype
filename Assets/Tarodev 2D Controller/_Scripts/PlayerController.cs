@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Runtime.CompilerServices;
+using System.Security;
 using System.Xml.Serialization;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -33,6 +34,7 @@ namespace prototype
         private DashController _DashController;
         private AttackController _AttackController;
         private StickToWallController _StickToWallController;
+        private JumpController _JumpController;
 
         private bool _applyGravityCheck;
 
@@ -65,11 +67,13 @@ namespace prototype
             MovementTrackerInit();
             DashControllerInit();
             StickToWallControllerInit();
+            JumpControllerInit();
         }
 
         private void StickToWallControllerInit(){
             _StickToWallController.StickToLeftWall = false;
             _StickToWallController.StickToRightWall = false;
+            _StickToWallController.StickToWallEnabled = true;
         }
         
         private void AttackControllerInit(){
@@ -98,7 +102,7 @@ namespace prototype
             _BlastController.dashController.velocity = 26f;
             _BlastController.dashController.duration = 0.05f;
             _BlastController.dashController.cooldown = 0.4f;
-            _BlastController.dashController.cooldownPassed = false;
+            _BlastController.dashController.cooldownPassed = true;
             _BlastController.dashController.isDashing = false;
             _BlastController.dashController.canDash = true;
         }
@@ -121,6 +125,16 @@ namespace prototype
             _DashController.isDashing = false;
             _DashController.cooldownPassed = false;
             _DashController.canDash = true;
+        }
+
+        private void JumpControllerInit(){
+            _JumpController.JumpToConsume = false;
+            _JumpController.BufferedJumpUsable = false;
+            _JumpController.EndedJumpEarly = false;
+            _JumpController.CoyoteUsable = false;
+            _JumpController.TimeJumpWasPressed = 0;
+            _JumpController.canJump = true;
+            _JumpController.jumpEnabled = true;
         }
 
         #endregion
@@ -243,7 +257,7 @@ namespace prototype
         }
 
         private void CheckBlastTask(){
-            if(Input.GetKeyDown("r") && _BlastController.dashController.canDash){
+            if(Input.GetKeyDown("r") && _BlastController.dashController.canDash && _BlastController.dashController.cooldownPassed){
                 _BlastController.dashController.isDashing = true;
                 _BlastController.dashController.canDash = false;  
                 _BlastController.dashController.cooldownPassed = false;
@@ -252,10 +266,13 @@ namespace prototype
 
                 if((_BlastController.direction == Vector2.left && _StickToWallController.StickToRightWall) || (_BlastController.direction == Vector2.right && _StickToWallController.StickToLeftWall)){
                     _BlastController.powerMultiplier = 1.3f;
+                }else if ((_StickToWallController.StickToRightWall || _StickToWallController.StickToLeftWall) && _BlastController.direction.y != 0){
+                    _BlastController.powerMultiplier = 0;
                 }else{
                     _BlastController.powerMultiplier = 1;
                 }
-                Debug.Log("_BlastController.powerMultiplier : " + _BlastController.powerMultiplier);
+
+                // _StickToWallController.StickToWallEnabled = false;
 
                 BlastPrefabCreate(_BlastController.direction * -1);
 
@@ -271,16 +288,15 @@ namespace prototype
         private IEnumerator StopBlast(){
             yield return new WaitForSeconds(_BlastController.dashController.duration);
             _BlastController.dashController.isDashing = false;
+            // _StickToWallController.StickToWallEnabled = true;
             yield return new WaitForSeconds(_BlastController.dashController.cooldown);
             _BlastController.dashController.cooldownPassed = true;
         }
 
         private void RunBlast(){
             if(_BlastController.dashController.isDashing){
-                
                 _frameVelocity = _BlastController.direction.normalized * _BlastController.dashController.velocity * _BlastController.powerMultiplier;
-                Debug.Log("_frameVelocity : " + _frameVelocity);
-            }else if(_grounded && _BlastController.dashController.canDash == false && _BlastController.dashController.cooldownPassed){
+            }else if(_grounded || _StickToWallController.StickToLeftWall == true || _StickToWallController.StickToRightWall == true){
                 _BlastController.dashController.canDash = true;
             }
         }
@@ -290,17 +306,20 @@ namespace prototype
         #region stick_to_wall
 
         private void StickToWallCheck(){
-            bool _leftWallHit;
-            bool _rightWallHit;
-            _leftWallHit = Physics2D.CapsuleCast(_col.bounds.center, _col.size, _col.direction, 0, Vector2.left, _stats.WallerDistance, wallLayer);
-            _rightWallHit = Physics2D.CapsuleCast(_col.bounds.center, _col.size, _col.direction, 0, Vector2.right, _stats.WallerDistance, wallLayer);
             _StickToWallController.StickToLeftWall = false;
             _StickToWallController.StickToRightWall = false;
-
-            if(!_grounded && _leftWallHit && _frameInput.Move.x < 0){
-                _StickToWallController.StickToLeftWall = true;
-            }else if(!_grounded && _rightWallHit && _frameInput.Move.x > 0){
-                _StickToWallController.StickToRightWall = true;
+            if(_StickToWallController.StickToWallEnabled){
+                bool _leftWallHit;
+                bool _rightWallHit;
+                _leftWallHit = Physics2D.CapsuleCast(_col.bounds.center, _col.size, _col.direction, 0, Vector2.left, _stats.WallerDistance, wallLayer);
+                _rightWallHit = Physics2D.CapsuleCast(_col.bounds.center, _col.size, _col.direction, 0, Vector2.right, _stats.WallerDistance, wallLayer);
+                if(!_grounded && _frameVelocity.y <= 0){
+                    if(_leftWallHit && _frameInput.Move.x < 0){
+                        _StickToWallController.StickToLeftWall = true;
+                    }else if(_rightWallHit && _frameInput.Move.x > 0){
+                        _StickToWallController.StickToRightWall = true;
+                    }
+                }
             }
         }
 
@@ -344,8 +363,8 @@ namespace prototype
 
             if (_frameInput.JumpDown)
             {
-                _jumpToConsume = true;
-                _timeJumpWasPressed = _time;
+                _JumpController.JumpToConsume = true;
+                _JumpController.TimeJumpWasPressed = _time;
             }
         }
 
@@ -414,8 +433,7 @@ namespace prototype
         private float _frameLeftGrounded = float.MinValue;
         private bool _grounded;
 
-        private void CheckCollisions()
-        {
+        private void CheckCollisions(){
             Physics2D.queriesStartInColliders = false;
 
             // Ground and Ceiling
@@ -430,9 +448,9 @@ namespace prototype
             if (!_grounded && groundHit)
             {
                 _grounded = true;
-                _coyoteUsable = true;
-                _bufferedJumpUsable = true;
-                _endedJumpEarly = false;
+                _JumpController.CoyoteUsable = true;
+                _JumpController.BufferedJumpUsable = true;
+                _JumpController.EndedJumpEarly = false;
                 GroundedChanged?.Invoke(true, Mathf.Abs(_frameVelocity.y));
 
             }
@@ -451,33 +469,44 @@ namespace prototype
 
         #region Jumping
 
-        private bool _jumpToConsume;
-        private bool _bufferedJumpUsable;
-        private bool _endedJumpEarly;
-        private bool _coyoteUsable;
-        private float _timeJumpWasPressed;
-
-        private bool HasBufferedJump => _bufferedJumpUsable && _time < _timeJumpWasPressed + _stats.JumpBuffer;
-        private bool CanUseCoyote => _coyoteUsable && !_grounded && _time < _frameLeftGrounded + _stats.CoyoteTime;
+        private bool HasBufferedJump => _JumpController.BufferedJumpUsable && _time < _JumpController.TimeJumpWasPressed + _stats.JumpBuffer;
+        private bool CanUseCoyote => _JumpController.CoyoteUsable && !_grounded && _time < _frameLeftGrounded + _stats.CoyoteTime;
 
         private void HandleJump()
         {
-            if (!_endedJumpEarly && !_grounded && !_frameInput.JumpHeld && _rb.linearVelocity.y > 0) _endedJumpEarly = true;
+            _JumpController.canJump = false;
+            if (!_JumpController.EndedJumpEarly && !_grounded && !_frameInput.JumpHeld && _rb.linearVelocity.y > 0){
+                _JumpController.EndedJumpEarly = true;
+            } 
 
-            if (!_jumpToConsume && !HasBufferedJump) return;
+            if (_JumpController.JumpToConsume || HasBufferedJump){
+                if(_StickToWallController.StickToLeftWall || _StickToWallController.StickToRightWall || _grounded || CanUseCoyote){
+                    _JumpController.canJump = true;
+                }
+            }
 
-            if (_grounded || CanUseCoyote) ExecuteJump();
+            if(_JumpController.canJump){
+                ExecuteJump();
+            }
 
-            _jumpToConsume = false;
+            
         }
 
         private void ExecuteJump()
         {
-            _endedJumpEarly = false;
-            _timeJumpWasPressed = 0;
-            _bufferedJumpUsable = false;
-            _coyoteUsable = false;
+            _JumpController.EndedJumpEarly = false;
+            _JumpController.TimeJumpWasPressed = 0;
+            _JumpController.BufferedJumpUsable = false;
+            _JumpController.CoyoteUsable = false;
+            _JumpController.JumpToConsume = false;
             _frameVelocity.y = _stats.JumpPower;
+            if(_StickToWallController.StickToLeftWall){
+                _frameVelocity.x = _stats.JumpFromWallPower;
+                _StickToWallController.StickToLeftWall = false;
+            }else if(_StickToWallController.StickToRightWall){
+                _frameVelocity.x = -1 * _stats.JumpFromWallPower;
+                _StickToWallController.StickToRightWall = false;
+            }
             Jumped?.Invoke();
         }
 
@@ -505,7 +534,7 @@ namespace prototype
         private void HandleVerticalDirection()
         {
             if(_StickToWallController.StickToLeftWall || _StickToWallController.StickToRightWall){
-                _frameVelocity.y = 0;
+                _frameVelocity.y = -1f;
             }
         }
 
@@ -519,7 +548,7 @@ namespace prototype
                 _frameVelocity.y = _stats.GroundingForce;
             }else if(_applyGravityCheck == true){
                 var inAirGravity = _stats.FallAcceleration;
-                if (_endedJumpEarly && _frameVelocity.y > 0) inAirGravity *= _stats.JumpEndEarlyGravityModifier;
+                if (_JumpController.EndedJumpEarly && _frameVelocity.y > 0) inAirGravity *= _stats.JumpEndEarlyGravityModifier;
                 _frameVelocity.y = Mathf.MoveTowards(_frameVelocity.y, -_stats.MaxFallSpeed, inAirGravity * Time.fixedDeltaTime);
             }
         }
@@ -573,7 +602,20 @@ namespace prototype
     {
         public bool StickToLeftWall;
         public bool StickToRightWall;
+        public bool StickToWallEnabled;
     }
+
+    public struct JumpController
+    {
+        public bool JumpToConsume;
+        public bool BufferedJumpUsable;
+        public bool EndedJumpEarly;
+        public bool CoyoteUsable;
+        public float TimeJumpWasPressed;
+        public bool canJump;
+        public bool jumpEnabled;
+    }
+
 
     public struct MovementTracker
     {

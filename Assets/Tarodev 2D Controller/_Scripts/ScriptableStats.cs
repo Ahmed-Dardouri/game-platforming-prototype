@@ -41,8 +41,11 @@ namespace prototype
         [Tooltip("The detection distance for walls detection"), Range(0f, 0.5f)]
         public float WallerDistance = 0.05f;
 
-        [Header("JUMP")] [Tooltip("The immediate velocity applied when jumping")]
+        [Header("JUMP")] [Tooltip("The immediate vertical velocity applied when jumping")]
         public float JumpPower = 36;
+
+        [Tooltip("The immediate horizontal velocity applied when jumping from wall")]
+        public float JumpFromWallPower = 10;
 
         [Tooltip("The maximum vertical movement speed")]
         public float MaxFallSpeed = 40;
