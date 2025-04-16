@@ -480,27 +480,32 @@ namespace prototype
             if (!_JumpController.EndedJumpEarly && !_grounded && !_frameInput.JumpHeld && _rb.linearVelocity.y > 0){
                 _JumpController.EndedJumpEarly = true;
             } 
+            if (!_JumpController.JumpToConsume && !HasBufferedJump){
+                return;
+            }
 
-            if (_JumpController.JumpToConsume || HasBufferedJump){
-                if(_StickToWallController.Stuck || _grounded || CanUseCoyote){
-                    _JumpController.canJump = true;
-                }
+            if(_StickToWallController.Stuck || _grounded || CanUseCoyote){
+                _JumpController.canJump = true;
             }
 
             if(_JumpController.canJump){
                 ExecuteJump();
             }
-
             
+            _JumpController.JumpToConsume = false;
+
+
         }
 
         private void ExecuteJump()
         {
+            Debug.Log("_StickToWallController.Stuck : " + _StickToWallController.Stuck);
+            Debug.Log("_grounded : " + _grounded);
+            Debug.Log("CanUseCoyote : " + CanUseCoyote);
             _JumpController.EndedJumpEarly = false;
             _JumpController.TimeJumpWasPressed = 0;
             _JumpController.BufferedJumpUsable = false;
-            _JumpController.CoyoteUsable = false;
-            _JumpController.JumpToConsume = false;
+            _JumpController.CoyoteUsable = false;      
             _frameVelocity.y = _stats.JumpPower;
             if(_StickToWallController.StickLeft){
                 _frameVelocity.x = _stats.JumpFromWallPower;
