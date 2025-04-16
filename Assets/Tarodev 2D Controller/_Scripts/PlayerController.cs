@@ -71,9 +71,10 @@ namespace prototype
         }
 
         private void StickToWallControllerInit(){
-            _StickToWallController.StickToLeftWall = false;
-            _StickToWallController.StickToRightWall = false;
+            _StickToWallController.StickLeft = false;
+            _StickToWallController.StickRight = false;
             _StickToWallController.StickToWallEnabled = true;
+            _StickToWallController.Stuck = false;
         }
         
         private void AttackControllerInit(){
@@ -123,7 +124,7 @@ namespace prototype
             _DashController.cooldown = 0.4f;
             _DashController.direction = new Vector2();
             _DashController.isDashing = false;
-            _DashController.cooldownPassed = false;
+            _DashController.cooldownPassed = true;
             _DashController.canDash = true;
         }
 
@@ -264,9 +265,9 @@ namespace prototype
 
                 _BlastController.direction = _MovementTracker.lastMove * -1;
 
-                if((_BlastController.direction == Vector2.left && _StickToWallController.StickToRightWall) || (_BlastController.direction == Vector2.right && _StickToWallController.StickToLeftWall)){
+                if((_BlastController.direction == Vector2.left && _StickToWallController.StickRight) || (_BlastController.direction == Vector2.right && _StickToWallController.StickLeft)){
                     _BlastController.powerMultiplier = 1.3f;
-                }else if ((_StickToWallController.StickToRightWall || _StickToWallController.StickToLeftWall) && _BlastController.direction.y != 0){
+                }else if (_StickToWallController.Stuck && _BlastController.direction.y != 0){
                     _BlastController.powerMultiplier = 0;
                 }else{
                     _BlastController.powerMultiplier = 1;
@@ -296,7 +297,7 @@ namespace prototype
         private void RunBlast(){
             if(_BlastController.dashController.isDashing){
                 _frameVelocity = _BlastController.direction.normalized * _BlastController.dashController.velocity * _BlastController.powerMultiplier;
-            }else if(_grounded || _StickToWallController.StickToLeftWall == true || _StickToWallController.StickToRightWall == true){
+            }else if(_grounded || _StickToWallController.Stuck){
                 _BlastController.dashController.canDash = true;
             }
         }
@@ -306,21 +307,22 @@ namespace prototype
         #region stick_to_wall
 
         private void StickToWallCheck(){
-            _StickToWallController.StickToLeftWall = false;
-            _StickToWallController.StickToRightWall = false;
+            _StickToWallController.StickLeft = false;
+            _StickToWallController.StickRight = false;
             if(_StickToWallController.StickToWallEnabled){
                 bool _leftWallHit;
                 bool _rightWallHit;
                 _leftWallHit = Physics2D.CapsuleCast(_col.bounds.center, _col.size, _col.direction, 0, Vector2.left, _stats.WallerDistance, wallLayer);
                 _rightWallHit = Physics2D.CapsuleCast(_col.bounds.center, _col.size, _col.direction, 0, Vector2.right, _stats.WallerDistance, wallLayer);
                 if(!_grounded && _frameVelocity.y <= 0){
-                    if(_leftWallHit && _frameInput.Move.x < 0){
-                        _StickToWallController.StickToLeftWall = true;
-                    }else if(_rightWallHit && _frameInput.Move.x > 0){
-                        _StickToWallController.StickToRightWall = true;
+                    if(_leftWallHit){
+                        _StickToWallController.StickLeft = true;
+                    }else if(_rightWallHit){
+                        _StickToWallController.StickRight = true;
                     }
                 }
             }
+            _StickToWallController.Stuck = _StickToWallController.StickLeft || _StickToWallController.StickRight;
         }
 
         #endregion
@@ -369,7 +371,7 @@ namespace prototype
         }
 
         private void ApplyGravityCheck(){
-            if(_DashController.isDashing == true || _BlastController.dashController.isDashing == true || _StickToWallController.StickToLeftWall || _StickToWallController.StickToRightWall){
+            if(_DashController.isDashing == true || _BlastController.dashController.isDashing == true || _StickToWallController.Stuck){
                 _applyGravityCheck = false;
             }else{
                 _applyGravityCheck = true;
@@ -379,7 +381,7 @@ namespace prototype
         #region Dash
 
         private void CheckDashTask(){
-            if(Input.GetKeyDown("e") && _DashController.canDash){
+            if(Input.GetKeyDown("e") && _DashController.canDash && _DashController.cooldownPassed){
 
                 _DashController.isDashing = true;
                 _DashController.canDash = false;  
@@ -395,6 +397,7 @@ namespace prototype
             }
             RunDash();
         }
+
         private IEnumerator StopDash(){
             yield return new WaitForSeconds(_DashController.duration);
             _DashController.isDashing = false;
@@ -402,11 +405,10 @@ namespace prototype
             _DashController.cooldownPassed = true;
         }
 
-        
         private void RunDash(){
             if(_DashController.isDashing){
                 _frameVelocity = _DashController.direction.normalized * _DashController.velocity;
-            }else if(_grounded && _DashController.canDash == false && _DashController.cooldownPassed){
+            }else if(_grounded || _StickToWallController.Stuck){
                 _DashController.canDash = true;
             }
         }
@@ -480,7 +482,7 @@ namespace prototype
             } 
 
             if (_JumpController.JumpToConsume || HasBufferedJump){
-                if(_StickToWallController.StickToLeftWall || _StickToWallController.StickToRightWall || _grounded || CanUseCoyote){
+                if(_StickToWallController.Stuck || _grounded || CanUseCoyote){
                     _JumpController.canJump = true;
                 }
             }
@@ -500,12 +502,12 @@ namespace prototype
             _JumpController.CoyoteUsable = false;
             _JumpController.JumpToConsume = false;
             _frameVelocity.y = _stats.JumpPower;
-            if(_StickToWallController.StickToLeftWall){
+            if(_StickToWallController.StickLeft){
                 _frameVelocity.x = _stats.JumpFromWallPower;
-                _StickToWallController.StickToLeftWall = false;
-            }else if(_StickToWallController.StickToRightWall){
+                _StickToWallController.Stuck = false;
+            }else if(_StickToWallController.StickRight){
                 _frameVelocity.x = -1 * _stats.JumpFromWallPower;
-                _StickToWallController.StickToRightWall = false;
+                _StickToWallController.Stuck = false;
             }
             Jumped?.Invoke();
         }
@@ -533,7 +535,7 @@ namespace prototype
 
         private void HandleVerticalDirection()
         {
-            if(_StickToWallController.StickToLeftWall || _StickToWallController.StickToRightWall){
+            if(_StickToWallController.Stuck){
                 _frameVelocity.y = -1f;
             }
         }
@@ -600,9 +602,10 @@ namespace prototype
     
     public struct StickToWallController
     {
-        public bool StickToLeftWall;
-        public bool StickToRightWall;
+        public bool StickLeft;
+        public bool StickRight;
         public bool StickToWallEnabled;
+        public bool Stuck;
     }
 
     public struct JumpController
