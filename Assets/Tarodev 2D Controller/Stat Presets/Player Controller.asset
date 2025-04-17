@@ -29,6 +29,7 @@ MonoBehaviour:
   GrounderDistance: 0.05
   WallerDistance: 0.05
   JumpPower: 33.5
+  JumpFromWallPower: 10
   MaxFallSpeed: 19.02
   FallAcceleration: 119.8
   JumpEndEarlyGravityModifier: 3
